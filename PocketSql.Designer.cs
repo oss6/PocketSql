@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PocketSql));
             this.treeView = new System.Windows.Forms.TreeView();
             this.menu = new System.Windows.Forms.MenuStrip();
@@ -86,9 +87,17 @@
             this.dgvCreateTable = new System.Windows.Forms.DataGridView();
             this.btnCreateTable = new System.Windows.Forms.Button();
             this.tpCommandLine = new System.Windows.Forms.TabPage();
-            this.lbOutput = new System.Windows.Forms.ListBox();
-            this.txtCommandLine = new System.Windows.Forms.TextBox();
-            this.rtbCommandHistory = new System.Windows.Forms.RichTextBox();
+            this.rtbEditor = new System.Windows.Forms.RichTextBox();
+            this.tabControlSQLFiles = new System.Windows.Forms.TabControl();
+            this.tpFile1 = new System.Windows.Forms.TabPage();
+            this.dgvResults = new System.Windows.Forms.DataGridView();
+            this.dgvOutput = new System.Windows.Forms.DataGridView();
+            this.menuCommandLine = new System.Windows.Forms.MenuStrip();
+            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.salvaScriptToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.salvaScriptConNomeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.apriScriptToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.eseguiRigaToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.cmsDBM = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.eliminaToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.nuovaTabellaToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -113,6 +122,11 @@
             this.tpCreateTable.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvCreateTable)).BeginInit();
             this.tpCommandLine.SuspendLayout();
+            this.tabControlSQLFiles.SuspendLayout();
+            this.tpFile1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvResults)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvOutput)).BeginInit();
+            this.menuCommandLine.SuspendLayout();
             this.cmsDBM.SuspendLayout();
             this.status.SuspendLayout();
             this.SuspendLayout();
@@ -121,7 +135,8 @@
             // 
             this.treeView.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left)));
-            this.treeView.Location = new System.Drawing.Point(14, 31);
+            this.treeView.BackColor = System.Drawing.Color.Lavender;
+            this.treeView.Location = new System.Drawing.Point(11, 31);
             this.treeView.Name = "treeView";
             this.treeView.Size = new System.Drawing.Size(209, 497);
             this.treeView.TabIndex = 0;
@@ -525,7 +540,7 @@
             this.dgvDescribeTable.Location = new System.Drawing.Point(7, 7);
             this.dgvDescribeTable.Name = "dgvDescribeTable";
             this.dgvDescribeTable.ReadOnly = true;
-            this.dgvDescribeTable.Size = new System.Drawing.Size(431, 405);
+            this.dgvDescribeTable.Size = new System.Drawing.Size(431, 413);
             this.dgvDescribeTable.TabIndex = 0;
             // 
             // tpDataTable
@@ -611,7 +626,7 @@
             this.dgvDataTable.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvDataTable.Location = new System.Drawing.Point(7, 7);
             this.dgvDataTable.Name = "dgvDataTable";
-            this.dgvDataTable.Size = new System.Drawing.Size(508, 409);
+            this.dgvDataTable.Size = new System.Drawing.Size(508, 417);
             this.dgvDataTable.TabIndex = 1;
             // 
             // tpCreateTable
@@ -664,13 +679,13 @@
             this.dgvCreateTable.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvCreateTable.Location = new System.Drawing.Point(16, 106);
             this.dgvCreateTable.Name = "dgvCreateTable";
-            this.dgvCreateTable.Size = new System.Drawing.Size(670, 256);
+            this.dgvCreateTable.Size = new System.Drawing.Size(670, 264);
             this.dgvCreateTable.TabIndex = 1;
             // 
             // btnCreateTable
             // 
             this.btnCreateTable.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.btnCreateTable.Location = new System.Drawing.Point(274, 382);
+            this.btnCreateTable.Location = new System.Drawing.Point(274, 390);
             this.btnCreateTable.Name = "btnCreateTable";
             this.btnCreateTable.Size = new System.Drawing.Size(127, 24);
             this.btnCreateTable.TabIndex = 0;
@@ -680,9 +695,10 @@
             // 
             // tpCommandLine
             // 
-            this.tpCommandLine.Controls.Add(this.lbOutput);
-            this.tpCommandLine.Controls.Add(this.txtCommandLine);
-            this.tpCommandLine.Controls.Add(this.rtbCommandHistory);
+            this.tpCommandLine.Controls.Add(this.tabControlSQLFiles);
+            this.tpCommandLine.Controls.Add(this.dgvResults);
+            this.tpCommandLine.Controls.Add(this.dgvOutput);
+            this.tpCommandLine.Controls.Add(this.menuCommandLine);
             this.tpCommandLine.Location = new System.Drawing.Point(4, 24);
             this.tpCommandLine.Name = "tpCommandLine";
             this.tpCommandLine.Padding = new System.Windows.Forms.Padding(3);
@@ -691,43 +707,120 @@
             this.tpCommandLine.Text = "Modalità interattiva";
             this.tpCommandLine.UseVisualStyleBackColor = true;
             // 
-            // lbOutput
+            // rtbEditor
             // 
-            this.lbOutput.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.lbOutput.FormattingEnabled = true;
-            this.lbOutput.ItemHeight = 15;
-            this.lbOutput.Location = new System.Drawing.Point(529, 27);
-            this.lbOutput.Name = "lbOutput";
-            this.lbOutput.Size = new System.Drawing.Size(186, 409);
-            this.lbOutput.TabIndex = 2;
-            // 
-            // txtCommandLine
-            // 
-            this.txtCommandLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.txtCommandLine.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtCommandLine.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txtCommandLine.Location = new System.Drawing.Point(7, 421);
-            this.txtCommandLine.Name = "txtCommandLine";
-            this.txtCommandLine.Size = new System.Drawing.Size(504, 23);
-            this.txtCommandLine.TabIndex = 1;
-            this.txtCommandLine.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtCommandLine_KeyDown);
-            // 
-            // rtbCommandHistory
-            // 
-            this.rtbCommandHistory.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.rtbEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.rtbCommandHistory.BackColor = System.Drawing.Color.LightSteelBlue;
-            this.rtbCommandHistory.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.rtbCommandHistory.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.rtbCommandHistory.Location = new System.Drawing.Point(7, 27);
-            this.rtbCommandHistory.Name = "rtbCommandHistory";
-            this.rtbCommandHistory.ReadOnly = true;
-            this.rtbCommandHistory.Size = new System.Drawing.Size(504, 395);
-            this.rtbCommandHistory.TabIndex = 0;
-            this.rtbCommandHistory.Text = "";
+            this.rtbEditor.BackColor = System.Drawing.SystemColors.Window;
+            this.rtbEditor.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.rtbEditor.Font = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rtbEditor.Location = new System.Drawing.Point(3, 6);
+            this.rtbEditor.Name = "rtbEditor";
+            this.rtbEditor.Size = new System.Drawing.Size(439, 261);
+            this.rtbEditor.TabIndex = 0;
+            this.rtbEditor.Text = "";
+            this.rtbEditor.TextChanged += new System.EventHandler(this.rtbEditor_TextChanged);
+            // 
+            // tabControlSQLFiles
+            // 
+            this.tabControlSQLFiles.Controls.Add(this.tpFile1);
+            this.tabControlSQLFiles.Location = new System.Drawing.Point(7, 41);
+            this.tabControlSQLFiles.Name = "tabControlSQLFiles";
+            this.tabControlSQLFiles.SelectedIndex = 0;
+            this.tabControlSQLFiles.Size = new System.Drawing.Size(456, 301);
+            this.tabControlSQLFiles.TabIndex = 6;
+            // 
+            // tpFile1
+            // 
+            this.tpFile1.Controls.Add(this.rtbEditor);
+            this.tpFile1.Location = new System.Drawing.Point(4, 24);
+            this.tpFile1.Name = "tpFile1";
+            this.tpFile1.Padding = new System.Windows.Forms.Padding(3);
+            this.tpFile1.Size = new System.Drawing.Size(448, 273);
+            this.tpFile1.TabIndex = 0;
+            this.tpFile1.Text = "SQL File";
+            this.tpFile1.UseVisualStyleBackColor = true;
+            // 
+            // dgvResults
+            // 
+            this.dgvResults.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.dgvResults.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.dgvResults.BackgroundColor = System.Drawing.SystemColors.ActiveCaption;
+            this.dgvResults.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.dgvResults.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dgvResults.Location = new System.Drawing.Point(469, 41);
+            this.dgvResults.Name = "dgvResults";
+            this.dgvResults.Size = new System.Drawing.Size(256, 421);
+            this.dgvResults.TabIndex = 5;
+            // 
+            // dgvOutput
+            // 
+            this.dgvOutput.AllowUserToAddRows = false;
+            this.dgvOutput.AllowUserToDeleteRows = false;
+            this.dgvOutput.AllowUserToResizeRows = false;
+            dataGridViewCellStyle1.BackColor = System.Drawing.Color.LightBlue;
+            this.dgvOutput.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
+            this.dgvOutput.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.dgvOutput.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.dgvOutput.BackgroundColor = System.Drawing.SystemColors.Window;
+            this.dgvOutput.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.None;
+            this.dgvOutput.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dgvOutput.Location = new System.Drawing.Point(7, 348);
+            this.dgvOutput.Name = "dgvOutput";
+            this.dgvOutput.Size = new System.Drawing.Size(456, 114);
+            this.dgvOutput.TabIndex = 4;
+            // 
+            // menuCommandLine
+            // 
+            this.menuCommandLine.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fileToolStripMenuItem,
+            this.eseguiRigaToolStripMenuItem});
+            this.menuCommandLine.Location = new System.Drawing.Point(3, 3);
+            this.menuCommandLine.Name = "menuCommandLine";
+            this.menuCommandLine.Size = new System.Drawing.Size(725, 24);
+            this.menuCommandLine.TabIndex = 7;
+            this.menuCommandLine.Text = "menuStrip1";
+            // 
+            // fileToolStripMenuItem
+            // 
+            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.salvaScriptToolStripMenuItem,
+            this.salvaScriptConNomeToolStripMenuItem,
+            this.apriScriptToolStripMenuItem});
+            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
+            this.fileToolStripMenuItem.Text = "File";
+            // 
+            // salvaScriptToolStripMenuItem
+            // 
+            this.salvaScriptToolStripMenuItem.Name = "salvaScriptToolStripMenuItem";
+            this.salvaScriptToolStripMenuItem.Size = new System.Drawing.Size(190, 22);
+            this.salvaScriptToolStripMenuItem.Text = "Salva script";
+            this.salvaScriptToolStripMenuItem.Click += new System.EventHandler(this.salvaScriptToolStripMenuItem_Click);
+            // 
+            // salvaScriptConNomeToolStripMenuItem
+            // 
+            this.salvaScriptConNomeToolStripMenuItem.Name = "salvaScriptConNomeToolStripMenuItem";
+            this.salvaScriptConNomeToolStripMenuItem.Size = new System.Drawing.Size(190, 22);
+            this.salvaScriptConNomeToolStripMenuItem.Text = "Salva script con nome";
+            this.salvaScriptConNomeToolStripMenuItem.Click += new System.EventHandler(this.salvaScriptConNomeToolStripMenuItem_Click);
+            // 
+            // apriScriptToolStripMenuItem
+            // 
+            this.apriScriptToolStripMenuItem.Name = "apriScriptToolStripMenuItem";
+            this.apriScriptToolStripMenuItem.Size = new System.Drawing.Size(190, 22);
+            this.apriScriptToolStripMenuItem.Text = "Apri script";
+            this.apriScriptToolStripMenuItem.Click += new System.EventHandler(this.apriScriptToolStripMenuItem_Click);
+            // 
+            // eseguiRigaToolStripMenuItem
+            // 
+            this.eseguiRigaToolStripMenuItem.Name = "eseguiRigaToolStripMenuItem";
+            this.eseguiRigaToolStripMenuItem.Size = new System.Drawing.Size(76, 20);
+            this.eseguiRigaToolStripMenuItem.Text = "Esegui riga";
+            this.eseguiRigaToolStripMenuItem.Click += new System.EventHandler(this.eseguiRigaToolStripMenuItem_Click);
             // 
             // cmsDBM
             // 
@@ -753,6 +846,7 @@
             // 
             // status
             // 
+            this.status.BackColor = System.Drawing.SystemColors.Window;
             this.status.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.lblInfo,
             this.lblState});
@@ -783,6 +877,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackColor = System.Drawing.Color.DarkSlateGray;
             this.ClientSize = new System.Drawing.Size(984, 562);
             this.Controls.Add(this.status);
             this.Controls.Add(this.tabControl);
@@ -820,6 +915,12 @@
             ((System.ComponentModel.ISupportInitialize)(this.dgvCreateTable)).EndInit();
             this.tpCommandLine.ResumeLayout(false);
             this.tpCommandLine.PerformLayout();
+            this.tabControlSQLFiles.ResumeLayout(false);
+            this.tpFile1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.dgvResults)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvOutput)).EndInit();
+            this.menuCommandLine.ResumeLayout(false);
+            this.menuCommandLine.PerformLayout();
             this.cmsDBM.ResumeLayout(false);
             this.status.ResumeLayout(false);
             this.status.PerformLayout();
@@ -842,9 +943,7 @@
         private System.Windows.Forms.DataGridView dgvDataTable;
         private System.Windows.Forms.ToolStripMenuItem databaseToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem creaToolStripMenuItem;
-        private System.Windows.Forms.TextBox txtCommandLine;
-        private System.Windows.Forms.RichTextBox rtbCommandHistory;
-        private System.Windows.Forms.ListBox lbOutput;
+        private System.Windows.Forms.RichTextBox rtbEditor;
         private System.Windows.Forms.ContextMenuStrip cmsDBM;
         private System.Windows.Forms.ToolStripMenuItem eliminaToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem nuovaTabellaToolStripMenuItem;
@@ -896,6 +995,16 @@
         private System.Windows.Forms.Button btnSaveDataTable;
         private System.Windows.Forms.ToolStripMenuItem avviaConnessioneToolStripMenuItem;
         private System.Windows.Forms.Label lblCreateTableFields;
+        private System.Windows.Forms.DataGridView dgvOutput;
+        private System.Windows.Forms.DataGridView dgvResults;
+        private System.Windows.Forms.TabControl tabControlSQLFiles;
+        private System.Windows.Forms.TabPage tpFile1;
+        private System.Windows.Forms.MenuStrip menuCommandLine;
+        private System.Windows.Forms.ToolStripMenuItem eseguiRigaToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem salvaScriptToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem salvaScriptConNomeToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem apriScriptToolStripMenuItem;
     }
 }
 

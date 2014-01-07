@@ -110,34 +110,36 @@ namespace PocketSql
             return true;
         }
 
-        public bool ExecuteNonQuery(string strCmd)
+        public object[] ExecuteNonQuery(string strCmd)
         {
             MySqlCommand cmd = new MySqlCommand(strCmd, _connection);
+            int rowsAffected = 0;
 
             try
             {
-                cmd.ExecuteNonQuery();
+                rowsAffected = cmd.ExecuteNonQuery();
             }
             catch
-            { return false; }
+            { return new object[] { false, rowsAffected }; }
 
-            return true;
+            return new object[] { true, rowsAffected };
         }
 
-        public bool ExecuteQueryDGV(string strCmd, ref DataGridView dataGridView)
+        public object[] ExecuteQueryDGV(string strCmd, ref DataGridView dataGridView)
         {
             MySqlDataAdapter da = new MySqlDataAdapter(strCmd, Connection);
             DataTable dt = new DataTable();
+            int rowsAffected = 0;
 
             try
             {
-                da.Fill(dt);
+                rowsAffected = da.Fill(dt);
                 dataGridView.DataSource = dt;
-
-                return true;
             }
             catch
-            { return false; }
+            { return new object[] { false, rowsAffected }; }
+
+            return new object[] { true, rowsAffected };
         }
 
         public List<object> ExecuteQuery(string strCmd)
@@ -193,21 +195,21 @@ namespace PocketSql
 
         public bool CreateDatabase(string name)
         {
-            if (!ExecuteNonQuery("CREATE DATABASE " + name + ";"))
+            if (!(bool)ExecuteNonQuery("CREATE DATABASE " + name + ";")[0])
                 return false;
             return true;
         }
 
         public bool DropDatabase(string dbName)
         {
-            if (!ExecuteNonQuery("DROP DATABASE " + dbName + ";"))
+            if (!(bool)ExecuteNonQuery("DROP DATABASE " + dbName + ";")[0])
                 return false;
             return true;
         }
 
         public bool DropTable(string tableName)
         {
-            if (!ExecuteNonQuery("DROP TABLE " + tableName + ";"))
+            if (!(bool)ExecuteNonQuery("DROP TABLE " + tableName + ";")[0])
                 return false;
             return true;
         }
@@ -289,21 +291,21 @@ namespace PocketSql
 
         public bool AddPrimaryKey(string tableName, string field)
         {
-            if (!ExecuteNonQuery("ALTER TABLE " + tableName + " ADD PRIMARY KEY (" + field + ");"))
+            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " ADD PRIMARY KEY (" + field + ");")[0])
                 return false;
             return true;
         }
 
         public bool DropPrimaryKey(string tableName)
         {
-            if (!ExecuteNonQuery("ALTER TABLE " + tableName + " DROP PRIMARY KEY;"))
+            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " DROP PRIMARY KEY;")[0])
                 return false;
             return true;
         }
 
         public bool AddForeignKey(string tableName, string fkField, string tableNameRef, string pkRef)
         {
-            if (!ExecuteNonQuery("ALTER TABLE " + tableName + " ADD CONSTRAINT " + fkField + " FOREIGN KEY (" + fkField + ") REFERENCES " + tableNameRef + "(" + pkRef + ") ON UPDATE CASCADE ON DELETE CASCADE;"))
+            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " ADD CONSTRAINT " + fkField + " FOREIGN KEY (" + fkField + ") REFERENCES " + tableNameRef + "(" + pkRef + ") ON UPDATE CASCADE ON DELETE CASCADE;")[0])
                 return false;
 
             return true;
@@ -311,7 +313,7 @@ namespace PocketSql
 
         public bool DropForeignKey(string tableName)
         {
-            if (!ExecuteNonQuery("ALTER TABLE " + tableName + " DROP FOREIGN KEY ForeignKeyP;"))
+            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " DROP FOREIGN KEY ForeignKeyP;")[0])
                 return false;
             return true;
         }

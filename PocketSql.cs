@@ -9,6 +9,10 @@ namespace PocketSql
     public partial class PocketSql : Form
     {
         MySqlClient client = new MySqlClient("localhost", "root", "pippo123");
+        List<string> keyWords = new List<string>() 
+        {
+            "use", "select"
+        };
 
         public PocketSql()
         {
@@ -46,7 +50,7 @@ namespace PocketSql
         private void PocketSql_Load(object sender, EventArgs e)
         {
             // Avvio del server e visualizzazione struttura databases
-            if (client.StartServer(@"..\mysqld.exe"))
+            if (client.StartServer(@"C:\Users\EdBali O\Documents\MySQL\mysql-5.6.12-win32-portable\mysql-5.6.12-win32-portable\mysql-5.6.12-win32\bin\mysqld.exe"))
             {
                 VisualizeTree();
 
@@ -60,6 +64,14 @@ namespace PocketSql
             dgvCreateTable.Columns[0].HeaderText = "Nome";
             dgvCreateTable.Columns[1].HeaderText = "Tipo di dati";
             dgvCreateTable.Columns[2].HeaderText = "Null";
+
+            // Gestione datagridview output
+            dgvOutput.ColumnCount = 5;
+            dgvOutput.Columns[0].HeaderText = "N. riga";
+            dgvOutput.Columns[1].HeaderText = "Tempo";
+            dgvOutput.Columns[2].HeaderText = "Azione";
+            dgvOutput.Columns[3].HeaderText = "Messaggio";
+            dgvOutput.Columns[4].HeaderText = "Durata";
         }
 
         private void avviaConnessioneToolStripMenuItem_Click(object sender, EventArgs e)
@@ -206,7 +218,7 @@ namespace PocketSql
                 else strCmd += ",";
             }
 
-            if (!client.ExecuteNonQuery(strCmd))
+            if (!(bool)client.ExecuteNonQuery(strCmd)[0])
                 MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             else
             {
@@ -344,42 +356,86 @@ namespace PocketSql
         //
         // LINEA DI COMANDO
         //
-        private void txtCommandLine_KeyDown(object sender, KeyEventArgs e)
+        private void eseguiRigaToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (e.KeyCode == Keys.Enter)
+            string istruzione = rtbEditor.Text.ToLower();
+
+            // Espressioni regolari
+            Match nonQuery = Regex.Match(istruzione, @"update|insert|delete|create|alter|drop|use");
+            Match queryDgv = Regex.Match(istruzione, @"select|describe|show");
+            int index, line;
+
+            if (nonQuery.Success)
             {
-                string istruzione = txtCommandLine.Text.ToLower();
+                object[] res = client.ExecuteNonQuery(istruzione);
 
-                // Espressioni regolari
-                Match nonQuery = Regex.Match(istruzione, @"update|insert|delete|create|alter|drop|use");
-                Match queryDgv = Regex.Match(istruzione, @"select|describe");
-                Match queryLb = Regex.Match(istruzione, @"show");
+                if (!(bool)res[0])
+                    MessageBox.Show("Istruzione non corretta.");
 
-                rtbCommandHistory.Text += ">> " + txtCommandLine.Text + "\n";
+                index = rtbEditor.SelectionStart;
+                line = rtbEditor.GetLineFromCharIndex(index);
 
-                if (nonQuery.Success)
-                {
-                    if (!client.ExecuteNonQuery(istruzione))
-                        MessageBox.Show("Istruzione non corretta.");
-                }
-                else if (queryDgv.Success)
-                {
-                    if (!client.ExecuteQueryDGV(istruzione, ref dgvDataTable)) // quale dgv????
-                        MessageBox.Show("Istruzione non corretta.");
-                }
-                else if (queryLb.Success)
-                {
-                    List<object> ls = client.ExecuteQuery(istruzione);
-
-                    if (ls != null)
-                        lbOutput.DataSource = ls;
-                    else MessageBox.Show("Istruzione non corretta.");
-                }
-                else
-                    MessageBox.Show("Istruzione non supportata.");
-
-                txtCommandLine.Text = "";
+                dgvOutput.Rows.Add();
+                dgvOutput[0, dgvOutput.RowCount - 1].Value = line;
+                dgvOutput[1, dgvOutput.RowCount - 1].Value = DateTime.Now.ToLongTimeString();
+                dgvOutput[2, dgvOutput.RowCount - 1].Value = rtbEditor.Lines[line];
+                dgvOutput[3, dgvOutput.RowCount - 1].Value = res[1] + " riga/righe modificate";
+                dgvOutput[4, dgvOutput.RowCount - 1].Value = "Durata";
             }
+            else if (queryDgv.Success)
+            {
+                object[] res = client.ExecuteQueryDGV(istruzione, ref dgvResults);
+
+                if (!(bool)res[0])
+                    MessageBox.Show("Istruzione non corretta.");
+
+                index = rtbEditor.SelectionStart;
+                line = rtbEditor.GetLineFromCharIndex(index);
+
+                dgvOutput.Rows.Add();
+                dgvOutput[0, dgvOutput.Rows.Count - 1].Value = line;
+                dgvOutput[1, dgvOutput.Rows.Count - 1].Value = DateTime.Now.ToLongTimeString();
+                dgvOutput[2, dgvOutput.Rows.Count - 1].Value = rtbEditor.Lines[line];
+                dgvOutput[3, dgvOutput.Rows.Count - 1].Value = res[1] + " riga/righe modificate";
+                dgvOutput[4, dgvOutput.Rows.Count - 1].Value = "Durata";
+            }
+            else MessageBox.Show("Istruzione non supportata.");
+        }
+
+        private void rtbEditor_TextChanged(object sender, EventArgs e)
+        {
+            if (!tpFile1.Text.Contains("*"))
+                tpFile1.Text += "*";
+
+            /*string tokens = "(add|all|alter|analyze|and|as|asc|asensitive|before|between|bigint|binary|blob|both|by|call|cascade|case|change|char|character|check|collate|column|condition|constraint|continue |convert|create|cross |current_date|current_time|current_timestamp |current_user|cursor|database |databases|day_hour|day_microsecond |day_minute|day_second|dec |decimal|declare|default |delayed|delete|desc |describe|deterministic|distinct |distinctrow|div|double |drop|dual|each |else|elseif|enclosed |escaped|exists|exit |explain|false|fetch |float|float4|float8 |for|force|foreign |from|fulltext|grant |group|having|high_priority |hour_microsecond|hour_minute|hour_second |if|ignore|in |index|infile|inner|inout|insensitive|insert|int|int1|int2|int3|int4|int8|integer|interval|into|is|iterate|join|key|keys|kill|leading|leave|left|like|limit|lines|load|localtime|localtimestamp|lock|long|longblob|longtext|loop|low_priority|match|mediumblob|mediumint|mediumtext|middleint|minute_microsecond|minute_second|mod|modifies|natural|not|no_write_to_binlog |null|numeric|on |optimize|option|optionally |or|order|out|outer|outfile|precision|primary|procedure|purge|read|reads|real|references|regexp|release|rename|repeat|replace|require|restrict|return|revoke|right|rlike|schema|schemas|second_microsecond|select|sensitive|separator|set|show|smallint|soname|spatial|specific| sql |sqlexception|sqlstate|sqlwarning|sql_big_result|sql_calc_found_rows|sql_small_result|ssl|starting|straight_join|table|terminated|then|tinyblob|tinyint|tinytext|to|trailing |trigger|true|undo|union|unique|unlock |unsigned|update|usage|use |using|utc_date |utc_time|utc_timestamp|values|varbinary|varchar|varcharacter|varying|when|where|while|with|write|xor|year_month|zerofill)";
+            Regex rex = new Regex(tokens);
+            MatchCollection mc = rex.Matches(rtbEditor.Text.ToLower());
+            int StartCursorPosition = rtbEditor.SelectionStart;
+
+            foreach (Match m in mc)
+            {
+                int startIndex = m.Index;
+                int StopIndex = m.Length;
+                rtbEditor.Select(startIndex, StopIndex);
+                rtbEditor.SelectionColor = Color.Blue;
+                rtbEditor.SelectionStart = StartCursorPosition;
+                rtbEditor.SelectionColor = Color.Black;
+            }*/
+        }
+
+        private void salvaScriptToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void salvaScriptConNomeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void apriScriptToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
         }
 
         private void documentazioneToolStripMenuItem_Click(object sender, EventArgs e)
