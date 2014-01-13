@@ -1,6 +1,10 @@
-﻿using System;
+﻿using FastColoredTextBoxNS;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
@@ -8,15 +12,21 @@ namespace PocketSql
 {
     public partial class PocketSql : Form
     {
+        // =============================
+        // === DICHIARAZIONE OGGETTI ===
+        // =============================
         MySqlClient client = new MySqlClient("localhost", "root", "pippo123");
-        List<string> keyWords = new List<string>() 
-        {
-            "use", "select"
-        };
+        string nonQueryStatements = @"update|insert|delete|create|alter|drop|use|grant|revoke|analyze|audit|comment|truncate|rename";
+        string queryStatements = @"select|describe|show";
+        string fileName = "";
+        bool toggleLineNumbers = false;
 
         public PocketSql()
         {
             InitializeComponent();
+
+            // Usa Segoe UI in Vista e 7 e Microsoft Sans Serif in XP e precedenti.
+            Font = SystemFonts.MessageBoxFont;
         }
 
         // ==============
@@ -60,18 +70,22 @@ namespace PocketSql
             }
 
             // Gestione datagridview creazione tabella
-            dgvCreateTable.ColumnCount = 3;
+            dgvCreateTable.ColumnCount = 4;
             dgvCreateTable.Columns[0].HeaderText = "Nome";
             dgvCreateTable.Columns[1].HeaderText = "Tipo di dati";
             dgvCreateTable.Columns[2].HeaderText = "Null";
+            dgvCreateTable.Columns[3].HeaderText = "Chiave primaria";
 
             // Gestione datagridview output
             dgvOutput.ColumnCount = 5;
-            dgvOutput.Columns[0].HeaderText = "N. riga";
-            dgvOutput.Columns[1].HeaderText = "Tempo";
-            dgvOutput.Columns[2].HeaderText = "Azione";
-            dgvOutput.Columns[3].HeaderText = "Messaggio";
-            dgvOutput.Columns[4].HeaderText = "Durata";
+            dgvOutput.Columns[0].HeaderText = "Esito";
+            dgvOutput.Columns[1].HeaderText = "N. riga";
+            dgvOutput.Columns[2].HeaderText = "Tempo";
+            dgvOutput.Columns[3].HeaderText = "Azione";
+            dgvOutput.Columns[4].HeaderText = "Messaggio";
+
+            rtbEditor.Language = Language.SQL;
+            rtbSchemaLogico.Language = Language.Custom;
         }
 
         private void avviaConnessioneToolStripMenuItem_Click(object sender, EventArgs e)
@@ -208,14 +222,33 @@ namespace PocketSql
         {
             // Creazione comando
             string strCmd = "CREATE TABLE " + txtTableNameCreate.Text + " (";
+            string fieldName, dataType, isNull;
+            List<string> primaryKeys = new List<string>();
+
             for (int i = 0; i < dgvCreateTable.Rows.Count - 1; i++)
             {
-                for (int j = 0; j < dgvCreateTable.Columns.Count; j++)
-                    strCmd += dgvCreateTable[j, i].Value + " ";
+                fieldName = dgvCreateTable[0, i].Value + "";
+                dataType = dgvCreateTable[1, i].Value + "";
+                isNull = (dgvCreateTable[2, i].Value + "").ToUpper() == "SI" ? "NULL" : "NOT NULL";
+                strCmd += (fieldName + " " + dataType + " " + isNull);
 
-                if (i == dgvCreateTable.Rows.Count - 2)
+                if((dgvCreateTable[3, i].Value + "").ToUpper() == "SI")
+                    primaryKeys.Add(fieldName);
+
+                // Controllo ultimo campo
+                if (i == dgvCreateTable.Rows.Count - 2 && primaryKeys.Count == 0)
                     strCmd += ");";
                 else strCmd += ",";
+            }
+
+            // Aggiunta di eventuali chiavi primarie
+            if (primaryKeys.Count != 0)
+            {
+                string constraint = "pk_" + txtTableNameCreate.Text;
+                strCmd += "CONSTRAINT " + constraint + " PRIMARY KEY (";
+                for (int i = 0; i < primaryKeys.Count; i++)
+                    strCmd += (i == primaryKeys.Count - 1 ? primaryKeys[i] + ")" : primaryKeys[i] + ",");
+                strCmd += ");";
             }
 
             if (!(bool)client.ExecuteNonQuery(strCmd)[0])
@@ -230,21 +263,58 @@ namespace PocketSql
             }
         }
 
-        //
-        // SALVATAGGIO TABELLA IN FORMATO CSV
-        //
-        private void btnSaveTableCSV_Click(object sender, EventArgs e)
+        private void btnResetTableCreation_Click(object sender, EventArgs e)
         {
-            if (SFD.ShowDialog() == DialogResult.OK)
+            txtTableNameCreate.Text = "";
+            dgvCreateTable.DataSource = null;
+            dgvCreateTable.Rows.Clear();
+        }
+
+        //
+        // SALVATAGGIO TABELLA IN FORMATO: CSV, JSON, HTML
+        //
+        private void btnSaveTable_Click(object sender, EventArgs e)
+        {
+            switch (cbSaveTableFormat.SelectedIndex)
             {
-                if (!client.WriteTable(SFD.FileName, client.CurrentTable))
-                    MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                else MessageBox.Show("Tabella salvata correttamente!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // CSV
+                case 0: 
+                    SFD.Filter = "File CSV|*.csv|Tutti i file|*.*";
+
+                    if (SFD.ShowDialog() == DialogResult.OK)
+                    {
+                        if (!client.WriteTableCSV(SFD.FileName, client.CurrentTable))
+                            MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        else MessageBox.Show("Tabella salvata correttamente!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    break;
+                // JSON
+                case 1: 
+                    SFD.Filter = "File JSON|*.json|Tutti i file|*.*";
+
+                    if (SFD.ShowDialog() == DialogResult.OK)
+                    {
+                        if (!client.WriteTableJSON(SFD.FileName, client.CurrentTable))
+                            MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        else MessageBox.Show("Tabella salvata correttamente!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    break;
+                // HTML
+                case 2: 
+                    SFD.Filter = "File HTML|*.html|Tutti i file|*.*";
+
+                    if (SFD.ShowDialog() == DialogResult.OK)
+                    {
+                        if (!client.WriteTableHTML(SFD.FileName, client.CurrentTable))
+                            MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        else MessageBox.Show("Tabella salvata correttamente!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    break;
             }
         }
 
         //
-        // INSERIMENTO CHIAVE PRIMARIA --> RICORDO: anche più attributi
+        // INSERIMENTO CHIAVE PRIMARIA
         //
         private void btnAddPK_Click(object sender, EventArgs e)
         {
@@ -254,7 +324,7 @@ namespace PocketSql
             {
                 client.DescribeTable(client.CurrentTable, ref dgvDescribeTable);
                 client.SelectAll(client.CurrentTable, ref dgvDataTable);
-                MessageBox.Show("Chiave primaria aggiunta correttamente.");
+                MessageBox.Show("Chiave primaria aggiunta correttamente.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
 
             txtPKFieldName.Text = "";
@@ -271,7 +341,7 @@ namespace PocketSql
             {
                 client.DescribeTable(client.CurrentTable, ref dgvDescribeTable);
                 client.SelectAll(client.CurrentTable, ref dgvDataTable);
-                MessageBox.Show("Chiave primaria eliminata correttamente.");
+                MessageBox.Show("Chiave primaria eliminata correttamente.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -298,7 +368,7 @@ namespace PocketSql
         //
         private void btnDropFK_Click(object sender, EventArgs e)
         {
-            if (!client.DropForeignKey(client.CurrentTable))
+            if (!client.DropForeignKey(client.CurrentTable, txtFKFieldNameRemove.Text))
                 MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             else
             {
@@ -339,7 +409,7 @@ namespace PocketSql
         private void btnSaveDataTable_Click(object sender, EventArgs e)
         {
             if (!client.CommitChanges(ref dgvDataTable))
-                MessageBox.Show("Attenzione! Si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Attenzione! Si è verificato un errore!\nControllare se la tabella possiede una chiave primaria.", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         //
@@ -356,91 +426,198 @@ namespace PocketSql
         //
         // LINEA DI COMANDO
         //
-        private void eseguiRigaToolStripMenuItem_Click(object sender, EventArgs e)
+        void HighlightComments(Range range)
         {
-            string istruzione = rtbEditor.Text.ToLower();
+            Style GreenStyle = rtbEditor.SyntaxHighlighter.GreenStyle;
 
-            // Espressioni regolari
-            Match nonQuery = Regex.Match(istruzione, @"update|insert|delete|create|alter|drop|use");
-            Match queryDgv = Regex.Match(istruzione, @"select|describe|show");
-            int index, line;
+            range.ClearStyle(GreenStyle);
 
-            if (nonQuery.Success)
-            {
-                object[] res = client.ExecuteNonQuery(istruzione);
-
-                if (!(bool)res[0])
-                    MessageBox.Show("Istruzione non corretta.");
-
-                index = rtbEditor.SelectionStart;
-                line = rtbEditor.GetLineFromCharIndex(index);
-
-                dgvOutput.Rows.Add();
-                dgvOutput[0, dgvOutput.RowCount - 1].Value = line;
-                dgvOutput[1, dgvOutput.RowCount - 1].Value = DateTime.Now.ToLongTimeString();
-                dgvOutput[2, dgvOutput.RowCount - 1].Value = rtbEditor.Lines[line];
-                dgvOutput[3, dgvOutput.RowCount - 1].Value = res[1] + " riga/righe modificate";
-                dgvOutput[4, dgvOutput.RowCount - 1].Value = "Durata";
-            }
-            else if (queryDgv.Success)
-            {
-                object[] res = client.ExecuteQueryDGV(istruzione, ref dgvResults);
-
-                if (!(bool)res[0])
-                    MessageBox.Show("Istruzione non corretta.");
-
-                index = rtbEditor.SelectionStart;
-                line = rtbEditor.GetLineFromCharIndex(index);
-
-                dgvOutput.Rows.Add();
-                dgvOutput[0, dgvOutput.Rows.Count - 1].Value = line;
-                dgvOutput[1, dgvOutput.Rows.Count - 1].Value = DateTime.Now.ToLongTimeString();
-                dgvOutput[2, dgvOutput.Rows.Count - 1].Value = rtbEditor.Lines[line];
-                dgvOutput[3, dgvOutput.Rows.Count - 1].Value = res[1] + " riga/righe modificate";
-                dgvOutput[4, dgvOutput.Rows.Count - 1].Value = "Durata";
-            }
-            else MessageBox.Show("Istruzione non supportata.");
+            // Commenti
+            range.SetStyle(GreenStyle, @"#.*$", RegexOptions.Multiline);
+            range.SetStyle(GreenStyle, @"(/\*.*?\*/)|(/\*.*)", RegexOptions.Singleline);
+            range.SetStyle(GreenStyle, @"(/\*.*?\*/)|(.*\*/)", RegexOptions.Singleline | RegexOptions.RightToLeft);
         }
 
-        private void rtbEditor_TextChanged(object sender, EventArgs e)
+        void HighlightExtendedKeyWords(Range range)
+        {
+            Style BlueBoldStyle = rtbEditor.SyntaxHighlighter.BlueBoldStyle;
+            range.SetStyle(BlueBoldStyle, @"(show|databases|tables|describe)", RegexOptions.Multiline);
+        }
+
+        bool ExecuteStatement(string st, int riga)
+        {
+            Match nonQuery = Regex.Match(st, nonQueryStatements);
+            Match query = Regex.Match(st, queryStatements);
+            object[] res = null; // Result array
+
+            if (nonQuery.Success)
+                res = client.ExecuteNonQuery(st);
+            else if (query.Success)
+                res = client.ExecuteQueryDGV(st, ref dgvResults);
+            else return false;
+
+            // Aggiorna la griglia di output (feedback)
+            dgvOutput.Rows.Add();
+            dgvOutput[0, dgvOutput.RowCount - 1].Value = (bool)res[0] ? "Positivo" : "Negativo";
+            dgvOutput[1, dgvOutput.RowCount - 1].Value = riga + 1;
+            dgvOutput[2, dgvOutput.RowCount - 1].Value = DateTime.Now.ToLongTimeString();
+            dgvOutput[3, dgvOutput.RowCount - 1].Value = st;
+            dgvOutput[4, dgvOutput.RowCount - 1].Value = (bool)res[0] ? res[1] + " riga/righe riportate" : (string)res[2];
+
+            return true;
+        }
+
+        private void eseguiRigaToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            int riga = rtbEditor.GetRange(rtbEditor.SelectionStart, rtbEditor.SelectionStart).End.iLine;
+            string istruzione = rtbEditor.GetLineText(riga);
+
+            if (!ExecuteStatement(istruzione.Trim().Replace("\"", "'"), riga))
+                MessageBox.Show("Controllare la sintassi.", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private void eseguiBloccoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string[] statements = rtbEditor.SelectedText == "" ? rtbEditor.Text.Split(';') : rtbEditor.SelectedText.Split(';');
+
+            for (int i = 0; i < statements.Length - 1; i++)
+                ExecuteStatement(statements[i].Trim().Replace("\"", "'") + ";", i);
+        }
+
+        private void rtbEditor_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            HighlightComments(rtbEditor.VisibleRange);
+            HighlightExtendedKeyWords(rtbEditor.VisibleRange);
+        }
+
+        private void rtbEditor_KeyDown(object sender, KeyEventArgs e)
         {
             if (!tpFile1.Text.Contains("*"))
                 tpFile1.Text += "*";
 
-            /*string tokens = "(add|all|alter|analyze|and|as|asc|asensitive|before|between|bigint|binary|blob|both|by|call|cascade|case|change|char|character|check|collate|column|condition|constraint|continue |convert|create|cross |current_date|current_time|current_timestamp |current_user|cursor|database |databases|day_hour|day_microsecond |day_minute|day_second|dec |decimal|declare|default |delayed|delete|desc |describe|deterministic|distinct |distinctrow|div|double |drop|dual|each |else|elseif|enclosed |escaped|exists|exit |explain|false|fetch |float|float4|float8 |for|force|foreign |from|fulltext|grant |group|having|high_priority |hour_microsecond|hour_minute|hour_second |if|ignore|in |index|infile|inner|inout|insensitive|insert|int|int1|int2|int3|int4|int8|integer|interval|into|is|iterate|join|key|keys|kill|leading|leave|left|like|limit|lines|load|localtime|localtimestamp|lock|long|longblob|longtext|loop|low_priority|match|mediumblob|mediumint|mediumtext|middleint|minute_microsecond|minute_second|mod|modifies|natural|not|no_write_to_binlog |null|numeric|on |optimize|option|optionally |or|order|out|outer|outfile|precision|primary|procedure|purge|read|reads|real|references|regexp|release|rename|repeat|replace|require|restrict|return|revoke|right|rlike|schema|schemas|second_microsecond|select|sensitive|separator|set|show|smallint|soname|spatial|specific| sql |sqlexception|sqlstate|sqlwarning|sql_big_result|sql_calc_found_rows|sql_small_result|ssl|starting|straight_join|table|terminated|then|tinyblob|tinyint|tinytext|to|trailing |trigger|true|undo|union|unique|unlock |unsigned|update|usage|use |using|utc_date |utc_time|utc_timestamp|values|varbinary|varchar|varcharacter|varying|when|where|while|with|write|xor|year_month|zerofill)";
-            Regex rex = new Regex(tokens);
-            MatchCollection mc = rex.Matches(rtbEditor.Text.ToLower());
-            int StartCursorPosition = rtbEditor.SelectionStart;
-
-            foreach (Match m in mc)
+            if (e.Control && e.KeyCode == Keys.S)
             {
-                int startIndex = m.Index;
-                int StopIndex = m.Length;
-                rtbEditor.Select(startIndex, StopIndex);
-                rtbEditor.SelectionColor = Color.Blue;
-                rtbEditor.SelectionStart = StartCursorPosition;
-                rtbEditor.SelectionColor = Color.Black;
-            }*/
+                salvaScriptToolStripMenuItem_Click(null, null);
+                e.SuppressKeyPress = true;
+            }
         }
 
         private void salvaScriptToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            if (fileName == "")
+                salvaScriptConNomeToolStripMenuItem_Click(null, null);
+            else
+            {
+                rtbEditor.SaveToFile(fileName, Encoding.UTF8);
+                tpFile1.Text = tpFile1.Text.Replace("*", "");
 
+                rtbEditor.SyntaxHighlighter.SQLSyntaxHighlight(rtbEditor.Range);
+            }
         }
 
         private void salvaScriptConNomeToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            if (SFDSql.ShowDialog() == DialogResult.OK)
+            {
+                rtbEditor.SaveToFile(SFDSql.FileName, Encoding.UTF8);
+                fileName = SFDSql.FileName; // Registra nome del file
+                tpFile1.Text = fileName.Split('\\').Last();
+            }
 
+            rtbEditor.SyntaxHighlighter.SQLSyntaxHighlight(rtbEditor.Range);
         }
 
         private void apriScriptToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            if (OFDSql.ShowDialog() == DialogResult.OK)
+            {
+                rtbEditor.OpenBindingFile(OFDSql.FileName, Encoding.UTF8);
+                tpFile1.Text = OFDSql.SafeFileName;
+                fileName = OFDSql.FileName;
+            }
 
+            rtbEditor.SyntaxHighlighter.SQLSyntaxHighlight(rtbEditor.Range);
+            HighlightComments(rtbEditor.Range);
         }
 
-        private void documentazioneToolStripMenuItem_Click(object sender, EventArgs e)
+        private void visualizzaNascondiNumeroRigheToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("La documentazione si può trovare al seguente link: http://www.pocketsql.altervista.org/", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            rtbEditor.ShowLineNumbers = toggleLineNumbers;
+            toggleLineNumbers = !toggleLineNumbers;
+        }
+
+        private void coloreDiSfondoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (colorDialogEditor.ShowDialog() == DialogResult.OK)
+                rtbEditor.BackColor = colorDialogEditor.Color;
+        }
+
+        private void tipoDiCarattereToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (fontDialogEditor.ShowDialog() == DialogResult.OK)
+                rtbEditor.Font = fontDialogEditor.Font;
+        }
+
+        //
+        // SCHEMA LOGICO
+        //
+        private void rtbSchemaLogico_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            Range range = e.ChangedRange;
+            Style BoldStyle = rtbSchemaLogico.SyntaxHighlighter.BlueBoldStyle;
+
+            range.ClearStyle(BoldStyle);
+            range.SetStyle(BoldStyle, @"(pk|fk|opt|{|})");
+        }
+
+        private void btnImplementaSchemaLogico_Click(object sender, EventArgs e)
+        {
+            if (txtNomeSchemaLogico.Text != "" || rtbSchemaLogico.Text != "")
+            {
+                SchemaLogico schema = SchemaLogico.Analizza(txtNomeSchemaLogico.Text, rtbSchemaLogico.Text.Trim());
+                client.ExecuteNonQuery(schema.GeneraSQL());
+
+                VisualizeTree();
+            }
+            else MessageBox.Show("Inserire il nome dello schema.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void btnGenerateSQL_Click(object sender, EventArgs e)
+        {
+            if (txtNomeSchemaLogico.Text != "" || rtbSchemaLogico.Text != "")
+            {
+                SchemaLogico schema = SchemaLogico.Analizza(txtNomeSchemaLogico.Text, rtbSchemaLogico.Text.Trim());
+                rtbEditor.Text = schema.GeneraSQL(true);
+                tabControl.SelectedIndex = 1;
+            }
+            else MessageBox.Show("Inserire il nome dello schema.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void btnSalvaSchemaLogico_Click(object sender, EventArgs e)
+        {
+            if (txtNomeSchemaLogico.Text != "" || rtbSchemaLogico.Text != "")
+            {
+                SchemaLogico schema = SchemaLogico.Analizza(txtNomeSchemaLogico.Text, rtbSchemaLogico.Text.Trim());
+                SFD.Filter = "File JSON|*.json|Tutti i file|*.*";
+
+                if (SFD.ShowDialog() == DialogResult.OK)
+                {
+                    if (!schema.Salva(SFD.FileName))
+                        MessageBox.Show("Attenzione si è verificato un errore!", "Attenzione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else MessageBox.Show("Schema logico salvato correttamente!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            else MessageBox.Show("Inserire il nome dello schema.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void documentazioneToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            Process.Start("http://www.pocketsql.altervista.org/doc.html");
+        }
+
+        private void licenzaToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Process.Start("http://www.pocketsql.altervista.org/license.html");
         }
 
         private void esciToolStripMenuItem_Click(object sender, EventArgs e)
@@ -453,7 +630,6 @@ namespace PocketSql
         {
             if (client.Connection.State != System.Data.ConnectionState.Closed)
                 client.Connection.Close();
-            client.CloseServer();
         }
     }
 }

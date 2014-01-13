@@ -1,8 +1,10 @@
 ﻿using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace PocketSql
@@ -29,37 +31,41 @@ namespace PocketSql
         }
 
         public MySqlConnection Connection
-        {
-            get { return _connection; }
-        }
+        { get { return _connection; } }
 
+        // SERVIZI PRIVATI
         bool GetResultSet(string strQuery, ref List<string> result)
         {
             MySqlCommand cmd = new MySqlCommand(strQuery, _connection);
-            MySqlDataReader dr;
+            MySqlDataReader dr = null;
 
             try
             {
                 dr = cmd.ExecuteReader();
+
+                // LETTURA TABELLA (RECORD --> CAMPO)
+                string lettura;
+                while (dr.Read())
+                {
+                    lettura = "";
+                    for (int i = 0; i < dr.FieldCount; i++)
+                        lettura += dr[i].ToString() + "; ";
+
+                    result.Add(lettura);
+                }
             }
             catch
             { return false; }
-
-
-            // LETTURA TABELLA (RECORD --> CAMPO)
-            string lettura;
-            while (dr.Read())
+            finally
             {
-                lettura = "";
-                for (int i = 0; i < dr.FieldCount; i++)
-                    lettura += dr[i].ToString() + "; ";
-
-                result.Add(lettura);
+                if (dr != null)
+                    dr.Close();
             }
 
             return true;
         }
 
+        // SERVIZI PUBBLICI
         public bool StartServer(string serverPath)
         {
             // AVVIA IL SERVER MySQL PORTABILE
@@ -68,7 +74,6 @@ namespace PocketSql
             bool esiste = false;
 
             // Manda in esecuzione il processo (può anche partire dopo l'apertura della connessione)
-            // Si possono usare anche percorsi relativi
             _pServer.StartInfo.FileName = serverPath;
             _pServer.StartInfo.WindowStyle = ProcessWindowStyle.Hidden; // Finestra nascosta
             _pServer.Start();
@@ -87,11 +92,6 @@ namespace PocketSql
                 return true;
 
             return false;
-        }
-
-        public void CloseServer()
-        {
-            _pServer.Kill();
         }
 
         public bool OpenConnection()
@@ -119,8 +119,8 @@ namespace PocketSql
             {
                 rowsAffected = cmd.ExecuteNonQuery();
             }
-            catch
-            { return new object[] { false, rowsAffected }; }
+            catch (MySqlException ex)
+            { return new object[] { false, rowsAffected, ex.Number + ": " + ex.Message }; }
 
             return new object[] { true, rowsAffected };
         }
@@ -136,8 +136,8 @@ namespace PocketSql
                 rowsAffected = da.Fill(dt);
                 dataGridView.DataSource = dt;
             }
-            catch
-            { return new object[] { false, rowsAffected }; }
+            catch (MySqlException ex)
+            { return new object[] { false, rowsAffected, ex.Number + ": " + ex.Message }; }
 
             return new object[] { true, rowsAffected };
         }
@@ -258,8 +258,8 @@ namespace PocketSql
                 ExecuteNonQuery("ALTER TABLE " + tableName + " ADD " + columnName + " " + dataType + " " + (isNull ? "NULL" : "NOT NULL") + ";");
 
                 // Aggiornamento
-                ExecuteQueryDGV("DESCRIBE " + tableName + ";", ref dgvDescribeTable);
-                ExecuteQueryDGV("SELECT * FROM " + tableName + ";", ref dgvDataTable);
+                DescribeTable(tableName, ref dgvDescribeTable);
+                SelectAll(tableName, ref dgvDataTable);
             }
             catch
             { return false; }
@@ -277,8 +277,8 @@ namespace PocketSql
                     ExecuteNonQuery("ALTER TABLE " + tableName + " DROP COLUMN " + columnName + ";");
 
                     // Aggiornamento
-                    ExecuteQueryDGV("DESCRIBE " + tableName + ";", ref dgvDescribeTable);
-                    ExecuteQueryDGV("SELECT * FROM " + tableName + ";", ref dgvDataTable);
+                    DescribeTable(tableName, ref dgvDescribeTable);
+                    SelectAll(tableName, ref dgvDataTable);
                 }
                 else
                     ExecuteNonQuery("DROP TABLE " + tableName + ";");
@@ -289,10 +289,28 @@ namespace PocketSql
             return true;
         }
 
-        public bool AddPrimaryKey(string tableName, string field)
+        public bool AddPrimaryKey(string tableName, string fields)
         {
-            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " ADD PRIMARY KEY (" + field + ");")[0])
+            string frmtFields = String.Join(",", fields.Split(',').Select(s => s.Trim()));
+            string constraint = "pk_" + tableName;
+
+            // Ricostruzione campi PK
+            List<string> prevFields = new List<string>();
+            MySqlDataAdapter da = new MySqlDataAdapter("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_NAME = '" + tableName + "';", Connection);
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+            for (int i = 0; i < dt.Rows.Count; i++)
+                prevFields.Add(dt.Rows[i][0] + "");
+            string prevFieldsStr = String.Join(",", prevFields);
+
+            // Rimozione chiave primaria
+            if (!DropPrimaryKey(tableName))
                 return false;
+
+            // Inserimento chiave primaria
+            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " ADD CONSTRAINT " + constraint + " PRIMARY KEY (" + prevFieldsStr + "," + frmtFields + ");")[0])
+                return false;
+
             return true;
         }
 
@@ -310,18 +328,19 @@ namespace PocketSql
 
             return true;
         }
-
-        public bool DropForeignKey(string tableName)
+        
+        public bool DropForeignKey(string tableName, string fkField)
         {
-            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " DROP FOREIGN KEY ForeignKeyP;")[0])
+            if (!(bool)ExecuteNonQuery("ALTER TABLE " + tableName + " DROP FOREIGN KEY " + fkField + 
+                "; ALTER TABLE " + tableName + " DROP INDEX " + fkField + ";")[0])
                 return false;
             return true;
         }
 
-        public bool WriteTable(string fileName, string tableName)
+        public bool WriteTableCSV(string fileName, string tableName)
         {
             List<string> output = new List<string>();
-            StreamWriter sw = new StreamWriter(fileName + ".csv");
+            StreamWriter sw = new StreamWriter(fileName);
 
             try
             {
@@ -329,6 +348,102 @@ namespace PocketSql
 
                 foreach (string linea in output)
                     sw.WriteLine(linea);
+            }
+            catch
+            { return false; }
+            finally
+            { sw.Close(); }
+
+            return true;
+        }
+
+        public bool WriteTableJSON(string fileName, string tableName)
+        {
+            MySqlDataAdapter da = new MySqlDataAdapter("SELECT * FROM " + tableName + ";", Connection);
+            DataTable dt = new DataTable(), dtFieldNames = new DataTable();
+            List<string> fieldNames = new List<string>();
+            StreamWriter sw = new StreamWriter(fileName);
+
+            try
+            {
+                // Dati tabella
+                da.Fill(dt);
+
+                // Nomi campi
+                da.SelectCommand.CommandText = "DESCRIBE " + tableName + ";";
+                da.Fill(dtFieldNames);
+                for (int i = 0; i < dtFieldNames.Rows.Count; i++)
+                    fieldNames.Add(dtFieldNames.Rows[i]["Field"] + "");
+
+                // Scrittura effettiva su file
+                sw.WriteLine("[");
+                for (int i = 0; i < dt.Rows.Count; i++)
+                {
+                    sw.WriteLine("\t{");
+                    for (int j = 0; j < dt.Columns.Count; j++)
+                    {
+                        string s = j == dt.Columns.Count - 1 ? "\t\t" + "'" + fieldNames[j] + "' : '" + dt.Rows[i][j] + "'" : "\t\t" + "'" + fieldNames[j] + "' : '" + dt.Rows[i][j] + "'" + ",";
+                        sw.WriteLine(s);
+                    }
+                    sw.WriteLine(i == dt.Rows.Count - 1 ? "\t}" : "\t},");
+                }
+                sw.WriteLine("]");
+            }
+            catch
+            { return false; }
+            finally
+            { sw.Close(); }
+
+            return true;
+        }
+
+        public bool WriteTableHTML(string fileName, string tableName)
+        {
+            MySqlDataAdapter da = new MySqlDataAdapter("SELECT * FROM " + tableName + ";", Connection);
+            DataTable dt = new DataTable(), dtFieldNames = new DataTable();
+            List<string> fieldNames = new List<string>();
+            StreamWriter sw = new StreamWriter(fileName);
+
+            try
+            {
+                // Dati tabella
+                da.Fill(dt);
+
+                // Nomi campi
+                da.SelectCommand.CommandText = "DESCRIBE " + tableName + ";";
+                da.Fill(dtFieldNames);
+                for (int i = 0; i < dtFieldNames.Rows.Count; i++)
+                    fieldNames.Add(dtFieldNames.Rows[i]["Field"] + "");
+
+                // Scrittura intestazioni e tag di apertura
+                sw.WriteLine("<!DOCTYPE html>");
+                sw.WriteLine("<html>");
+                sw.WriteLine("\t<head>");
+                sw.WriteLine("\t\t<meta charset='utf-8'>");
+                sw.WriteLine("\t\t<title>Data</title>");
+                sw.WriteLine("\t</head>");
+                sw.WriteLine("\t<body>");
+                sw.WriteLine("\t\t<table border=1>");
+
+                // Scrittura dei nomi dei campi
+                sw.WriteLine("\t\t\t<tr>");
+                foreach (string field in fieldNames)
+                    sw.WriteLine("\t\t\t\t<td bgcolor=silver>" + field + "</td>");
+                sw.WriteLine("\t\t\t</tr>");
+
+                // Scrittura dei dati
+                for (int i = 0; i < dt.Rows.Count; i++)
+                {
+                    sw.WriteLine("\t\t\t<tr>");
+                    for (int j = 0; j < dt.Columns.Count; j++)
+                        sw.WriteLine("\t\t\t\t<td>" + dt.Rows[i][j] + "</td>");
+                    sw.WriteLine("\t\t\t</tr>");
+                }
+
+                // Scrittura tag di chiusura
+                sw.WriteLine("\t\t</table>");
+                sw.WriteLine("\t</body>");
+                sw.WriteLine("</html>");
             }
             catch
             { return false; }
